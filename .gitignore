@@ -1,0 +1,80 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+pip-wheel-metadata/
+*.whl
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Test / coverage
+.pytest_cache/
+coverage.xml
+htmlcov/
+.coverage
+
+# IDEs and editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.* 
+*.env
+
+# Logs
+*.log
+logs/
+
+# Database / vector store (omitir si quieres versionar intencionalmente)
+vector_metadata.db
+*.sqlite3
+faiss_index_*.pkl
+faiss_index_*.idx
+
+# Hugging Face / model caches (opcional, si tienes cachés grandes)
+transformers_cache/
+huggingface_hub/
+cache/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Misc
+*.swp
+*.bak
+*~
+
+# Node (si el backend en Node está en el mismo repo)
+node_modules/
+npm-debug.log*
+yarn-error.log*
