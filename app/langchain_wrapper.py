@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import sqlite3
 from app.core.config import settings
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -6,52 +7,100 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.llms import HuggingFaceHub
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
+from app.vector_store.faiss_store import get_connection, list_namespaces
 
-DB_PATH = "vector_metadata.db"
+# raíces
+PROJECT_ROOT = Path(__file__).resolve().parent
+VECTORSTORE_ROOT = PROJECT_ROOT.parent / "vectorstores"
 
 def _load_chunks(namespace: str | None = None):
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn = get_connection()
     cursor = conn.cursor()
     if namespace:
-        cursor.execute("SELECT content, id FROM chunks WHERE active=1 AND namespace=?", (namespace,))
+        cursor.execute(
+            "SELECT content, namespace, source FROM chunks WHERE namespace=? AND active=1",
+            (namespace,),
+        )
     else:
-        cursor.execute("SELECT content, id FROM chunks WHERE active=1")
+        cursor.execute("SELECT content, namespace, source FROM chunks WHERE active=1")
     rows = cursor.fetchall()
-    texts = [r[0] for r in rows]
-    metadatas = [{"doc_id": r[1], "namespace": namespace or ""} for r in rows]
+    texts = []
+    metadatas = []
+    for content, ns, source in rows:
+        texts.append(content)
+        meta = {"namespace": ns, "source": source, "doc_id": source}
+        metadatas.append(meta)
     return texts, metadatas
 
-def build_retrieval_chain(namespace: str, system_prompt: str, k: int = 5):
-    embedding_model = os.getenv("EMBEDDING_MODEL", settings.embedding_model)
-    generation_model = os.getenv("GENERATION_MODEL", settings.generation_model)
-    hf_token = os.getenv("HUGGINGFACEHUB_API_TOKEN") or os.getenv("HUGGINGFACE_API_TOKEN")
-    if not hf_token:
-        raise ValueError("Hugging Face API token not set in environment as HUGGINGFACEHUB_API_TOKEN or HUGGINGFACE_API_TOKEN")
+def _get_or_build_vectorstore(namespace: str, embedding_model_name: str, k: int):
+    embeddings = HuggingFaceEmbeddings(model_name=embedding_model_name)
+    vs_dir = VECTORSTORE_ROOT / namespace
+
+    if vs_dir.exists():
+        try:
+            vectorstore = FAISS.load_local(str(vs_dir), embeddings)
+            return vectorstore
+        except Exception:
+            pass  # se reconstruye si falla
+
     texts, metadatas = _load_chunks(namespace)
-    # Embeddings
-    embeddings = HuggingFaceEmbeddings(model_name=embedding_model)
     if not texts:
         vectorstore = FAISS.from_texts([], embeddings, metadatas=[])
     else:
         vectorstore = FAISS.from_texts(texts, embeddings, metadatas=metadatas)
-    retriever = vectorstore.as_retriever(search_kwargs={"k": k})
-    # LLM
-    llm = HuggingFaceHub(repo_id=generation_model, model_kwargs={"temperature": float(os.getenv('TEMPERATURE', settings.temperature)), "max_new_tokens": int(os.getenv('MAX_TOKENS', settings.max_tokens))}, huggingfacehub_api_token=hf_token)
-    template = """{system_prompt}
 
-CONTEXTO RELEVANTE:
+    vs_dir.mkdir(parents=True, exist_ok=True)
+    vectorstore.save_local(str(vs_dir))
+    return vectorstore
+
+def build_and_persist_vectorstores_for_all_namespaces():
+    embedding_model = os.getenv("EMBEDDING_MODEL", settings.embedding_model)
+    namespaces = list_namespaces()
+    for namespace in namespaces:
+        _get_or_build_vectorstore(namespace, embedding_model, settings.retrieval_k)
+
+def build_retrieval_chain(
+    namespace: str | None,
+    system_prompt: str,
+    question: str,
+    k: int,
+    temperature: float,
+    max_tokens: int,
+):
+    embedding_model = os.getenv("EMBEDDING_MODEL", settings.embedding_model)
+    generation_model = os.getenv("GENERATION_MODEL", settings.generation_model)
+
+    # cargar o construir vectorstore persistido
+    vectorstore = _get_or_build_vectorstore(namespace or "", embedding_model, k)
+    retriever = vectorstore.as_retriever(search_kwargs={"k": k})
+
+    llm = HuggingFaceHub(
+        repo_id=generation_model,
+        model_kwargs={"temperature": temperature, "max_new_tokens": max_tokens},
+    )
+
+    template = """
+Sos un asistente experto. Usar el siguiente contexto para responder.
+
+Contexto:
 {context}
 
 PREGUNTA:
 {question}
 
-Responde con diagnóstico breve, recomendaciones y ejemplos. Si falta información, indícalo claramente.""".strip()
-    prompt = PromptTemplate(input_variables=["system_prompt", "context", "question"], template=template)
+Responde con diagnóstico breve, recomendaciones y ejemplos. Si falta información, indícalo claramente.
+""".strip()
+
+    prompt = PromptTemplate(
+        input_variables=["context", "question"], template=template
+    )
+
     chain = RetrievalQA.from_chain_type(
         llm=llm,
         chain_type="stuff",
         retriever=retriever,
         return_source_documents=True,
-        chain_type_prompt=prompt
+        chain_type_prompt=prompt,
     )
     return chain
+

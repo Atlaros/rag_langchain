@@ -1,14 +1,17 @@
 import os
 import sqlite3
 import hashlib
-from typing import Optional, List, Union
+from typing import Union
+from pathlib import Path
 from PyPDF2 import PdfReader
 from io import BytesIO
 
-DB_PATH = "vector_metadata.db"
+# rutas absolutas: la DB está en la raíz del proyecto
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DB_PATH = PROJECT_ROOT / "vector_metadata.db"
 
 def get_connection():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS chunks (
@@ -16,14 +19,13 @@ def get_connection():
             content TEXT NOT NULL,
             namespace TEXT,
             source TEXT,
-            created_at TEXT DEFAULT (datetime('now')),
             active INTEGER DEFAULT 1
         )
         """
     )
     return conn
 
-def chunk_text(text: str, chunk_size: int = 500, overlap: int = 100) -> List[str]:
+def chunk_text(text: str, chunk_size: int = 150, overlap: int = 50):
     tokens = text.split()
     chunks = []
     i = 0
@@ -71,7 +73,7 @@ def _index_text_chunks(full_text: str, namespace: str, source: str):
     conn.commit()
     return {"indexed_chunks": added, "namespace": namespace}
 
-# Compatibilidad si alguna parte aún llama a este nombre
+# Compatibilidad de llamada genérica
 def add_documents_from_pdf(pdf_input, namespace: str):
     if isinstance(pdf_input, (bytes, bytearray)):
         return add_documents_from_pdf_bytes(pdf_input, namespace, source="<bytes>")
@@ -79,3 +81,10 @@ def add_documents_from_pdf(pdf_input, namespace: str):
         return add_documents_from_pdf_path(pdf_input, namespace)
     else:
         raise ValueError("Unsupported type for add_documents_from_pdf")
+
+def list_namespaces():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT namespace FROM chunks WHERE active=1")
+    rows = cursor.fetchall()
+    return [r[0] for r in rows if r[0]]

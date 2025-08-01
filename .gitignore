@@ -83,3 +83,7 @@ yarn-error.log*
 data/
 vector_metadata.db
 *.pkl
+
+/pdfs/
+/vectorstores/
+/vector_metadata.db
