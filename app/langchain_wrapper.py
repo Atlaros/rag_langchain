@@ -7,7 +7,7 @@ from app.vector_store.faiss_store import get_connection, list_namespaces
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.llms import HuggingFaceHub
-from langchain.chains import RetrievalQA
+from langchain.chains import VectorDBQA  # O QAWithSourcesChain
 from langchain.prompts import PromptTemplate
 
 

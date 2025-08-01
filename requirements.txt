@@ -1,23 +1,31 @@
-fastapi>=0.100.0
-uvicorn[standard]>=0.23.0
-python-dotenv>=1.0.0
-langchain>=0.0.470
-langchain-huggingface>=0.2.0
+fastapi==0.103.0
+uvicorn[standard]==0.23.2
+python-dotenv==1.0.0
 
-# Fijar versiones para evitar warnings
+# CORE RAG
+langchain==0.0.21
+
+# Embeddings y modelos
 sentence-transformers==2.2.2
-transformers>=4.39.0
+transformers==4.35.0
 torch==2.1.0
+huggingface-hub==0.16.4
 
-huggingface-hub>=0.16.4
-faiss-cpu>=1.7.4
-PyPDF2>=3.0.0
-python-multipart>=0.0.6
-requests>=2.31.0
-numpy>=1.26.0
-PyYAML>=6.0
-pydantic>=2.2.1
-pycryptodome>=3.17.0
+# Vector store
+faiss-cpu==1.7.4
 
-# Dependencias adicionales para suprimir warnings
-packaging>=21.0
+# Utilidades para PDFs y uploads
+PyPDF2==3.0.1
+python-multipart==0.0.6
+requests==2.31.0
+
+# Compatibilidad NumPy y Pydantic (¡IMPORTANTE!)
+numpy==1.24.4
+pydantic==1.10.13
+
+# Otros (opcional)
+PyYAML==6.0
+pycryptodome==3.18.0
+packaging==21.3
+
+pandas
