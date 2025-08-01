@@ -3,6 +3,7 @@ from pathlib import Path
 import sqlite3
 from app.core.config import settings
 from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.llms import HuggingFaceHub
 from langchain.chains import RetrievalQA
