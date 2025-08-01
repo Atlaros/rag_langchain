@@ -1,0 +1,11 @@
+tu-dominio.com {
+    reverse_proxy rag:8000
+    encode gzip zstd
+    log {
+        output stdout
+        format console
+    }
+    header {
+        Strict-Transport-Security "max-age=31536000;"
+    }
+}

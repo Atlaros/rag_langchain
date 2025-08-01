@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: rag-hf-api
+    env: docker
+    plan: free
+    branch: main
+    dockerfilePath: ./Dockerfile
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port ${PORT}
+    envVars:
+      - key: HUGGINGFACEHUB_API_TOKEN
+        sync: false
+      - key: EMBEDDING_MODEL
+        value: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+      - key: GENERATION_MODEL
+        value: google/flan-t5-small
+      - key: USE_REMOTE_INFERENCE
+        value: "true"

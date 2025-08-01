@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  rag:
+    build: .
+    container_name: rag-service
+    env_file: .env
+    volumes:
+      - .:/app:delegated
+      - ./vector_metadata.db:/app/vector_metadata.db
+    restart: unless-stopped
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  caddy:
+    image: caddy:2
+    container_name: caddy-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - rag
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
