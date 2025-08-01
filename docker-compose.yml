@@ -1,13 +1,135 @@
 version: "3.8"
+
 services:
-  rag:
-    build: .
-    ports:
-      - "8000:8000"
-    env_file: .env
-    volumes:
-      - .:/app:delegated
-      - ./pdfs:/app/pdfs
-      - ./vectorstores:/app/vectorstores
-      - ./vector_metadata.db:/app/vector_metadata.db
+  rag-microservice:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-microservice
     restart: unless-stopped
+    
+    # Configuración de red
+    ports:
+      - "${RAG_PORT:-8000}:8000"
+    
+    # Variables de entorno
+    env_file: 
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - RAG_ENV=production
+      - LOG_LEVEL=INFO
+    
+    # Volúmenes para persistencia
+    volumes:
+      # Base de datos vectorial
+      - ./vector_metadata.db:/app/vector_metadata.db
+      
+      # Directorio de PDFs para auto-ingesta  
+      - ./pdfs:/app/pdfs
+      
+      # Almacén de índices vectoriales FAISS
+      - ./vectorstores:/app/vectorstores
+      
+      # Logs (opcional)
+      - ./logs:/app/logs
+      
+      # Configuración (solo lectura)
+      - ./.env:/app/.env:ro
+    
+    # Límites de recursos
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Dependencias (si tienes otros servicios)
+    # depends_on:
+    #   - redis
+    #   - postgres
+    
+    # Redes
+    networks:
+      - rag-network
+
+  # Reverse proxy (opcional para producción)
+  nginx:
+    image: nginx:alpine
+    container_name: rag-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - rag-microservice
+    networks:
+      - rag-network
+    # Solo activar si necesitas proxy
+    profiles:
+      - production
+
+  # Redis para caché (opcional)
+  redis:
+    image: redis:7-alpine
+    container_name: rag-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - rag-network
+    # Solo activar si necesitas caché
+    profiles:
+      - cache
+
+  # Monitoring con Prometheus (opcional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: rag-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    networks:
+      - rag-network
+    profiles:
+      - monitoring
+
+# Redes
+networks:
+  rag-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Volúmenes nombrados
+volumes:
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local

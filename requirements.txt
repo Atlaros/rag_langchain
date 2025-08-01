@@ -15,3 +15,4 @@ numpy>=1.26.0
 PyYAML>=6.0
 pydantic>=2.2.1
 pycryptodome>=3.17.0
+pandas
