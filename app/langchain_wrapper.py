@@ -1,14 +1,15 @@
 import os
 from pathlib import Path
-import sqlite3
+
 from app.core.config import settings
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from app.vector_store.faiss_store import get_connection, list_namespaces
+
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.llms import HuggingFaceHub
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
-from app.vector_store.faiss_store import get_connection, list_namespaces
+
 
 # raíces
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -42,7 +43,7 @@ def _get_or_build_vectorstore(namespace: str, embedding_model_name: str, k: int)
             vectorstore = FAISS.load_local(str(vs_dir), embeddings)
             return vectorstore
         except Exception:
-            pass  # se reconstruye si falla
+            pass  # reconstruir si falla
 
     texts, metadatas = _load_chunks(namespace)
     if not texts:
@@ -71,12 +72,16 @@ def build_retrieval_chain(
     embedding_model = os.getenv("EMBEDDING_MODEL", settings.embedding_model)
     generation_model = os.getenv("GENERATION_MODEL", settings.generation_model)
 
-    # cargar o construir vectorstore persistido
-    vectorstore = _get_or_build_vectorstore(namespace or "", embedding_model, k)
+    if not namespace:
+        namespace = ""  # o usar "compromidos" por defecto si corresponde
+
+    vectorstore = _get_or_build_vectorstore(namespace, embedding_model, k)
     retriever = vectorstore.as_retriever(search_kwargs={"k": k})
 
     llm = HuggingFaceHub(
         repo_id=generation_model,
+        task="text2text-generation",
+        huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
         model_kwargs={"temperature": temperature, "max_new_tokens": max_tokens},
     )
 
@@ -104,4 +109,5 @@ Responde con diagnóstico breve, recomendaciones y ejemplos. Si falta informaci�
         chain_type_prompt=prompt,
     )
     return chain
+
 
