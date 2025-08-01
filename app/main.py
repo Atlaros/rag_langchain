@@ -1,3 +1,4 @@
+import warnings
 import logging
 import asyncio
 from contextlib import asynccontextmanager
@@ -9,17 +10,29 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import time
 
+# Suprimir warnings específicos
+warnings.filterwarnings("ignore", category=FutureWarning, module="torch")
+warnings.filterwarnings("ignore", message=".*encoder_attention_mask.*")
+
+# También puedes ser más específico:
+# warnings.filterwarnings("ignore", category=FutureWarning, message=".*encoder_attention_mask.*")
+
 from app.api.endpoints import router
 from app.auto_ingest import scan_and_ingest
 from app.core.config import settings
 
-# Configurar logging
+# Configurar logging (esto suprimirá algunos warnings también)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
+# Suprimir logging de warnings de transformers si lo deseas
+logging.getLogger("transformers").setLevel(logging.ERROR)
+logging.getLogger("sentence_transformers").setLevel(logging.ERROR)
+
+# Resto del código permanece igual...
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Gestión del ciclo de vida de la aplicación"""
@@ -245,4 +258,3 @@ if __name__ == "__main__":
         log_level="info",
         access_log=True
     )
-

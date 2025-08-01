@@ -4,9 +4,9 @@ from pathlib import Path
 from app.core.config import settings
 from app.vector_store.faiss_store import get_connection, list_namespaces
 
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_community.llms import HuggingFaceHub
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.vectorstores import FAISS
+from langchain.llms import HuggingFaceHub
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 
@@ -106,8 +106,9 @@ Responde con diagn√≥stico breve, recomendaciones y ejemplos. Si falta informaci√
         chain_type="stuff",
         retriever=retriever,
         return_source_documents=True,
-        chain_type_prompt=prompt,
-    )
+        prompt=prompt  # <-- CAMBIA ESTO
+)
+
     return chain
 
 
